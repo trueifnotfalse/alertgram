@@ -92,9 +92,11 @@ func (m *Main) Run() error {
 
 		// Alert forward.
 		forwardSvc, err := forward.NewService(forward.ServiceConfig{
-			AlertLabelChatID: m.cfg.AlertLabelChatID,
-			Notifiers:        []forward.Notifier{notifier},
-			Logger:           m.logger,
+			AlertLabelChatID:               m.cfg.AlertLabelChatID,
+			AlertAmountInOneMessage:        m.cfg.AlertAmountInOneMessage,
+			TelegramTimeoutBetweenMessages: m.cfg.TelegramTimeoutBetweenMessages,
+			Notifiers:                      []forward.Notifier{notifier},
+			Logger:                         m.logger,
 		})
 		if err != nil {
 			return err

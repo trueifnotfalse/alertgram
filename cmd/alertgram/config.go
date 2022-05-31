@@ -15,34 +15,38 @@ var (
 
 // flag descriptions.
 const (
-	descAMListenAddr       = "The listen address where the server will be listening to alertmanager's webhook request."
-	descAMWebhookPath      = "The path where the server will be handling the alertmanager webhook alert requests."
-	descAMChatIDQS         = "The optional query string key used to customize the chat id of the notification. Does not depend on the notifier type."
-	descAMDMSPath          = "The path for the dead man switch alerts from the Alertmanger."
-	descTelegramAPIToken   = "The token that will be used to use the telegram API to send the alerts."
-	descTelegramDefChatID  = "The default ID of the chat (group/channel) in telegram where the alerts will be sent."
-	descMetricsListenAddr  = "The listen address where the metrics will be being served."
-	descMetricsPath        = "The path where the metrics will be being served."
-	descMetricsHCPath      = "The path where the healthcheck will be being served, it uses the same port as the metrics."
-	descDMSEnable          = "Enables the dead man switch, that will send an alert if no alert is received at regular intervals."
-	descDMSInterval        = "The interval the dead mans switch needs to receive an alert to not activate and send a notification alert (in Go time duration)."
-	descDMSChatID          = "The chat ID (group/channel/room) the dead man's witch will sent the alerts. Does not depend on the notifier type and if not set it will be used notifier default chat ID."
-	descDebug              = "Run the application in debug mode."
-	descNotifyDryRun       = "Dry run the notification and show in the terminal instead of sending."
-	descNotifyTemplatePath = "The path to set a custom template for the notification messages."
-	descAlertLabelChatID   = "The label of the alert that will carry the chat id to forward the alert."
+	descAMListenAddr                   = "The listen address where the server will be listening to alertmanager's webhook request."
+	descAMWebhookPath                  = "The path where the server will be handling the alertmanager webhook alert requests."
+	descAMChatIDQS                     = "The optional query string key used to customize the chat id of the notification. Does not depend on the notifier type."
+	descAMDMSPath                      = "The path for the dead man switch alerts from the Alertmanger."
+	descTelegramAPIToken               = "The token that will be used to use the telegram API to send the alerts."
+	descTelegramDefChatID              = "The default ID of the chat (group/channel) in telegram where the alerts will be sent."
+	descMetricsListenAddr              = "The listen address where the metrics will be being served."
+	descMetricsPath                    = "The path where the metrics will be being served."
+	descMetricsHCPath                  = "The path where the healthcheck will be being served, it uses the same port as the metrics."
+	descDMSEnable                      = "Enables the dead man switch, that will send an alert if no alert is received at regular intervals."
+	descDMSInterval                    = "The interval the dead mans switch needs to receive an alert to not activate and send a notification alert (in Go time duration)."
+	descDMSChatID                      = "The chat ID (group/channel/room) the dead man's witch will sent the alerts. Does not depend on the notifier type and if not set it will be used notifier default chat ID."
+	descDebug                          = "Run the application in debug mode."
+	descNotifyDryRun                   = "Dry run the notification and show in the terminal instead of sending."
+	descNotifyTemplatePath             = "The path to set a custom template for the notification messages."
+	descAlertLabelChatID               = "The label of the alert that will carry the chat id to forward the alert."
+	descAlertAmountInOneMessage        = "Alerts amount in one message."
+	descTelegramTimeoutBetweenMessages = "Timeout between messages."
 )
 
 const (
-	defAMListenAddr      = ":8080"
-	defAMWebhookPath     = "/alerts"
-	defAMChatIDQS        = "chat-id"
-	defAMDMSPath         = "/alerts/dms"
-	defMetricsListenAddr = ":8081"
-	defMetricsPath       = "/metrics"
-	defMetricsHCPath     = "/status"
-	defDMSInterval       = "15m"
-	defAlertLabelChatID  = "chat_id"
+	defAMListenAddr                   = ":8080"
+	defAMWebhookPath                  = "/alerts"
+	defAMChatIDQS                     = "chat-id"
+	defAMDMSPath                      = "/alerts/dms"
+	defMetricsListenAddr              = ":8081"
+	defMetricsPath                    = "/metrics"
+	defMetricsHCPath                  = "/status"
+	defDMSInterval                    = "15m"
+	defAlertLabelChatID               = "chat_id"
+	defAlertAmountInOneMessage        = "5"
+	defTelegramTimeoutBetweenMessages = "0s"
 )
 
 // Config has the configuration of the application.
@@ -63,6 +67,8 @@ type Config struct {
 	DebugMode                      bool
 	NotifyDryRun                   bool
 	AlertLabelChatID               string
+	AlertAmountInOneMessage        int
+	TelegramTimeoutBetweenMessages time.Duration
 
 	app *kingpin.Application
 }
@@ -102,6 +108,8 @@ func (c *Config) registerFlags() {
 	c.app.Flag("notify.dry-run", descNotifyDryRun).BoolVar(&c.NotifyDryRun)
 	c.app.Flag("notify.template-path", descNotifyTemplatePath).FileVar(&c.NotifyTemplate)
 	c.app.Flag("alert.label-chat-id", descAlertLabelChatID).Default(defAlertLabelChatID).StringVar(&c.AlertLabelChatID)
+	c.app.Flag("alert.amount-in-one-message", descAlertAmountInOneMessage).Default(defAlertAmountInOneMessage).IntVar(&c.AlertAmountInOneMessage)
+	c.app.Flag("telegram.timeout-between-messages", descTelegramTimeoutBetweenMessages).Default(defTelegramTimeoutBetweenMessages).DurationVar(&c.TelegramTimeoutBetweenMessages)
 	c.app.Flag("debug", descDebug).BoolVar(&c.DebugMode)
 }
 

@@ -4,10 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-
 	"github.com/slok/alertgram/internal/internalerrors"
 	"github.com/slok/alertgram/internal/log"
 	"github.com/slok/alertgram/internal/model"
+	"time"
 )
 
 // Properties are the  properties an AlertGroup can have
@@ -27,9 +27,11 @@ type Service interface {
 
 // ServiceConfig is the service configuration.
 type ServiceConfig struct {
-	AlertLabelChatID string
-	Notifiers        []Notifier
-	Logger           log.Logger
+	AlertLabelChatID               string
+	AlertAmountInOneMessage        int
+	TelegramTimeoutBetweenMessages time.Duration
+	Notifiers                      []Notifier
+	Logger                         log.Logger
 }
 
 func (c *ServiceConfig) defaults() error {
@@ -89,6 +91,9 @@ func (s service) Forward(ctx context.Context, props Properties, alertGroup *mode
 				s.logger.WithValues(log.KV{"notifier": notifier.Type(), "alertGroupID": alertGroup.ID, "chatID": notification.ChatID}).
 					Errorf("could not notify alert group: %s", err)
 			}
+			if s.cfg.TelegramTimeoutBetweenMessages > 0 {
+				time.Sleep(s.cfg.TelegramTimeoutBetweenMessages)
+			}
 		}
 	}
 
@@ -96,42 +101,55 @@ func (s service) Forward(ctx context.Context, props Properties, alertGroup *mode
 }
 
 func (s service) createNotifications(props Properties, alertGroup *model.AlertGroup) (ns []*Notification, err error) {
-	// Decompose the alerts in groups by chat IDs based on the
-	// alert chat ID labels. If the alerts don't have the chat ID
-	// label they will remain on the default group.
-	agByChatID := map[string]*model.AlertGroup{}
-	for _, a := range alertGroup.Alerts {
-		chatID := a.Labels[s.cfg.AlertLabelChatID]
-		ag, ok := agByChatID[chatID]
-		if !ok {
+	alertsGroupedByChatId := s.groupAlertsByChatId(alertGroup)
+
+	// Create notifications based on the alertgroups.
+	var notifications []*Notification
+	for chatID, alertList := range *alertsGroupedByChatId {
+		var alerts []model.Alert
+		count := 0
+		for _, alert := range *alertList {
+			alerts = append(alerts, alert)
+			count++
+			if count < s.cfg.AlertAmountInOneMessage {
+				continue
+			}
+
 			id := alertGroup.ID
 			if chatID != "" {
 				id = fmt.Sprintf("%s-%s", alertGroup.ID, chatID)
 			}
-			ag = &model.AlertGroup{
+			ag := &model.AlertGroup{
 				ID:     id,
 				Labels: alertGroup.Labels,
+				Alerts: alerts,
 			}
-			agByChatID[chatID] = ag
+			if chatID == "" {
+				chatID = props.CustomChatID
+			}
+			notifications = append(notifications, &Notification{
+				AlertGroup: *ag,
+				ChatID:     chatID,
+			})
+			alerts = nil
+			count = 0
 		}
-
-		ag.Alerts = append(ag.Alerts, a)
-	}
-
-	// Create notifications based on the alertgroups.
-	notifications := []*Notification{}
-	for chatID, ag := range agByChatID {
-		// If no custom alert based chat then fallback to
-		// properties custom chat (normally received by upper
-		// layers by URL).
-		if chatID == "" {
-			chatID = props.CustomChatID
-		}
-		notifications = append(notifications, &Notification{
-			AlertGroup: *ag,
-			ChatID:     chatID,
-		})
 	}
 
 	return notifications, nil
+}
+
+func (s service) groupAlertsByChatId(alertGroup *model.AlertGroup) *map[string]*[]model.Alert {
+	alertListByChatID := map[string]*[]model.Alert{}
+	for _, a := range alertGroup.Alerts {
+		chatID := a.Labels[s.cfg.AlertLabelChatID]
+		alertList, ok := alertListByChatID[chatID]
+		if !ok {
+			alertList = &([]model.Alert{})
+		}
+		*alertList = append(*alertList, a)
+		alertListByChatID[chatID] = alertList
+	}
+
+	return &alertListByChatID
 }
