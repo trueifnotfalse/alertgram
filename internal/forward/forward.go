@@ -114,29 +114,37 @@ func (s service) createNotifications(props Properties, alertGroup *model.AlertGr
 			if count < s.cfg.AlertAmountInOneMessage {
 				continue
 			}
-
-			id := alertGroup.ID
-			if chatID != "" {
-				id = fmt.Sprintf("%s-%s", alertGroup.ID, chatID)
-			}
-			ag := &model.AlertGroup{
-				ID:     id,
-				Labels: alertGroup.Labels,
-				Alerts: alerts,
-			}
-			if chatID == "" {
-				chatID = props.CustomChatID
-			}
-			notifications = append(notifications, &Notification{
-				AlertGroup: *ag,
-				ChatID:     chatID,
-			})
+			notification := s.createNotification(chatID, &props, alertGroup, &alerts)
+			notifications = append(notifications, notification)
 			alerts = nil
 			count = 0
+		}
+		if 0 < len(alerts) {
+			notification := s.createNotification(chatID, &props, alertGroup, &alerts)
+			notifications = append(notifications, notification)
 		}
 	}
 
 	return notifications, nil
+}
+
+func (s service) createNotification(chatId string, props *Properties, alertGroup *model.AlertGroup, alerts *[]model.Alert) *Notification {
+	id := alertGroup.ID
+	if chatId != "" {
+		id = fmt.Sprintf("%s-%s", alertGroup.ID, chatId)
+	} else {
+		chatId = props.CustomChatID
+	}
+	ag := &model.AlertGroup{
+		ID:     id,
+		Labels: alertGroup.Labels,
+		Alerts: *alerts,
+	}
+
+	return &Notification{
+		AlertGroup: *ag,
+		ChatID:     chatId,
+	}
 }
 
 func (s service) groupAlertsByChatId(alertGroup *model.AlertGroup) *map[string]*[]model.Alert {
